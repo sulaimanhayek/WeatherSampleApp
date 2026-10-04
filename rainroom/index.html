@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06090f">
+<meta name="description" content="Generative rain, thunder and lo-fi music for late-night study.">
+<title>Rainroom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="scene" aria-hidden="true"></canvas>
+<canvas id="bolt" aria-hidden="true"></canvas>
+
+<div class="shell">
+  <header class="top">
+    <div class="brand"><em>Rainroom</em></div>
+    <div class="strike" id="strike" aria-live="polite">
+      <span class="strike-km" id="strikeKm">0.0 km</span>
+      <span class="strike-note" id="strikeNote">thunder in 0.0 s</span>
+    </div>
+  </header>
+
+  <section class="hero" id="hero">
+    <h1>Rain for the <em>late hours</em></h1>
+    <p>Every drop, rumble and chord is generated live in your browser. Headphones help.</p>
+    <button class="start" id="startBtn" type="button">Start the rain</button>
+  </section>
+
+  <section class="panel" id="panel" aria-label="Sound controls">
+    <div class="panel-head">
+      <button class="play" id="playBtn" type="button" aria-label="Play">
+        <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+        <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+      </button>
+      <div class="now">
+        <div class="now-label" id="nowLabel">Steady rain</div>
+        <div class="now-meta"><span id="nowMeta">6.5 mm/h · moderate</span><span class="focus-left" id="focusLeft"></span></div>
+      </div>
+      <button class="icon-btn" id="strikeBtn" type="button" aria-label="Call a lightning strike" title="Lightning (L)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 5 13.5h6L9.5 22 19 9.5h-6.2z"/></svg>
+      </button>
+      <button class="icon-btn" id="collapseBtn" type="button" aria-label="Hide controls" aria-expanded="true" title="Hide controls (H)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <div class="panel-body">
+      <div class="inner">
+        <div class="presets" role="group" aria-label="Presets">
+          <button class="chip" type="button" data-preset="drizzle">Drizzle</button>
+          <button class="chip" type="button" data-preset="steady">Steady rain</button>
+          <button class="chip" type="button" data-preset="downpour">Downpour</button>
+          <button class="chip" type="button" data-preset="storm">Thunderstorm</button>
+          <button class="chip" type="button" data-preset="focus">Lo-fi focus</button>
+        </div>
+
+        <div class="mixer">
+          <label class="row" for="rain"><span class="lbl">Rain</span><input type="range" id="rain" min="0" max="100" step="1"><output id="rainOut"></output></label>
+          <label class="row" for="thunder"><span class="lbl">Thunder</span><input type="range" id="thunder" min="0" max="100" step="1"><output id="thunderOut"></output></label>
+          <label class="row" for="music"><span class="lbl">Music</span><input type="range" id="music" min="0" max="100" step="1"><output id="musicOut"></output></label>
+          <label class="row" for="wind"><span class="lbl">Wind</span><input type="range" id="wind" min="0" max="100" step="1"><output id="windOut"></output></label>
+          <label class="row" for="volume"><span class="lbl">Volume</span><input type="range" id="volume" min="0" max="100" step="1"><output id="volumeOut"></output></label>
+        </div>
+
+        <div class="timer" role="group" aria-label="Focus timer">
+          <span class="lbl">Focus</span>
+          <div class="timer-chips">
+            <button class="chip small" type="button" data-min="0">Off</button>
+            <button class="chip small" type="button" data-min="25">25m</button>
+            <button class="chip small" type="button" data-min="50">50m</button>
+            <button class="chip small" type="button" data-min="90">90m</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
