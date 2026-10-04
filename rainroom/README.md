@@ -8,6 +8,10 @@ Every sound is synthesized in the browser with the Web Audio API, so nothing loo
 - **Thunder**: each strike is placed at a random distance. The flash appears at once and the rumble arrives about 2.9 s per km later, as it would outside. Close strikes add a crack and a sub-bass boom.
 - **Wind**: band-passed noise with drifting gusts and a faint whistle.
 - **Music**: a slow Dmaj9 → Bm9 → Gmaj9 → Em9 pad with a sub bass and sparse pentatonic keys through a dotted-eighth echo and a generated reverb.
+- **Window**: rain heard through glass, with taps and drips on the pane. Raising it also muffles the outdoor rain, as if you were inside.
+- **Mud**: squelches, pops, and now and then someone walking through it.
+- **Traffic**: cars passing on a wet road, sweeping across the stereo field with tyre spray and a slight Doppler drop, over a low city rumble.
+- **Keyboard**: typing in bursts with pauses, space bar included.
 
 Rainfall is shown in mm/h, classed light / moderate / heavy / violent by AMS thresholds.
 
@@ -36,8 +40,11 @@ python3 tools/build_single.py   # -> dist/rainroom.html
 | Space | Play / pause |
 | L | Call a lightning strike |
 | H | Hide / show controls |
+| D | Switch daylight / evening |
 
-Presets: Drizzle, Steady rain, Downpour, Thunderstorm, Lo-fi focus. The focus timer (25/50/90 min) plays a soft chime when it ends. While playing, the page asks to keep the screen awake and dims the controls after 8 s without input. Your mix is saved in local storage.
+The panel has three tabs. **Mix** holds the presets (Drizzle, Steady rain, Downpour, Thunderstorm, City night, Lo-fi focus), rainfall, rain volume, music and master volume. **Sounds** has a tile per layer (thunder, wind, window, mud, traffic, keyboard): tap to toggle, slide to set its level. **Room** switches between daylight and evening, turns the desk lamp and street lamps on or off, and starts the focus timer.
+
+The scene follows along: street lamps light the rain falling past them, the desk lamp warms the room, and the window layer puts drops on the glass that bead up, merge and run down. The focus timer (25/50/90 min) plays a soft chime when it ends. While playing, the page asks to keep the screen awake and dims the controls after 8 s without input. Your mix is saved in local storage.
 
 ## Files
 

@@ -569,12 +569,12 @@
       this.applyRain();
       this.ramp(this.bus.thunder.gain, L.thunder > 0.001 ? 0.45 + 0.55 * L.thunder : 0);
       this.ramp(this.bus.music.gain, L.music * 0.9, 0.5);
-      this.ramp(this.bus.wind.gain, L.wind * 1.3, 0.6);
-      this.ramp(this.bus.window.gain, L.window * 1.1, 0.5);
+      this.ramp(this.bus.wind.gain, L.wind * 1.6, 0.6);
+      this.ramp(this.bus.window.gain, L.window * 2.4, 0.5);
       this.ramp(this.winBody.gain, 0.15 + 0.6 * L.rain, 0.6);
-      this.ramp(this.bus.mud.gain, L.mud, 0.5);
+      this.ramp(this.bus.mud.gain, L.mud * 9, 0.5);
       this.ramp(this.bus.traffic.gain, L.traffic * 0.9, 0.8);
-      this.ramp(this.bus.keyboard.gain, L.keyboard * 0.9, 0.4);
+      this.ramp(this.bus.keyboard.gain, L.keyboard * 1.5, 0.4);
       if (this.playing) this.ramp(this.out.gain, L.volume * L.volume, 0.25);
     }
 
