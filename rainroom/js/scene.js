@@ -106,9 +106,9 @@
       float y = halfH - fall;
       vec3 head = vec3(aSeed.x * dist * uSpread - uWind * y, y, 12.0 - dist);
       vec3 dir = normalize(vec3(uWind, -1.0, 0.0));
-      float len = 0.35 + 0.9 * aSeed.z;
+      float len = 0.18 + 0.4 * aSeed.z;
       vec3 p = head - dir * len * aEnd;
-      vAlpha = mix(0.95, 0.14, smoothstep(3.0, 52.0, dist)) * (1.0 - aEnd);
+      vAlpha = mix(0.6, 0.12, smoothstep(3.0, 52.0, dist)) * (1.0 - aEnd);
       gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
       vScreen = gl_Position.xy / gl_Position.w * 0.5 + 0.5;
     }
@@ -381,14 +381,14 @@
       for (const key of Object.keys(this.cur)) this.cur[key] += (this.params[key] - this.cur[key]) * k;
 
       const rain = this.cur.rain;
-      this.rain.geometry.setDrawRange(0, Math.round(this.N * Math.pow(rain, 0.85)) * 2);
-      this.travel += dt * (20 + 16 * rain);
+      this.rain.geometry.setDrawRange(0, Math.round(this.N * 0.65 * Math.pow(rain, 1.1)) * 2);
+      this.travel += dt * (8 + 6 * rain); // gentle fall, a bit quicker in heavy rain
       this.rainU.uTravel.value = this.travel;
       this.rainU.uColor.value.copy(this.nightRain).lerp(this.dayRain, this.cur.day);
 
       const t = this.t;
       const gust = this.cur.wind * (0.7 + 0.3 * Math.sin(t * 0.23) * Math.sin(t * 0.71));
-      const wind = 0.04 + gust * 0.5;
+      const wind = 0.03 + gust * 0.3;
       this.rainU.uWind.value = wind;
       this.rainU.uSpread.value = Math.tan(Math.PI / 6) * this.camera.aspect * 1.15 + wind * 0.7;
 
