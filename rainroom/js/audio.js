@@ -53,7 +53,7 @@
     constructor() {
       this.ctx = null;
       this.playing = false;
-      this.levels = { rain: 0.55, thunder: 0.15, music: 0.5, wind: 0.18, volume: 0.8 };
+      this.levels = { rain: 0.55, rainVol: 0.8, music: 0.5, volume: 0.8, thunder: 0.15, wind: 0.18, window: 0, mud: 0, traffic: 0, keyboard: 0 };
       this.onStrike = null;
     }
 
@@ -93,7 +93,7 @@
         brown: noiseBuffer(ctx, 8, 'brown'),
       };
 
-      const sends = { rain: 0.12, thunder: 0.6, music: 0.55, wind: 0.1 };
+      const sends = { rain: 0.12, thunder: 0.6, music: 0.55, wind: 0.1, window: 0.08, mud: 0.15, traffic: 0.25, keyboard: 0.05 };
       this.bus = {};
       for (const k of Object.keys(sends)) {
         const g = this.bus[k] = this.gain(0);
@@ -107,6 +107,7 @@
       this.buildRain();
       this.buildWind();
       this.buildMusic();
+      this.buildAmbience();
       this.applyLevels();
     }
 
@@ -128,10 +129,12 @@
 
     applyRain() {
       const v = this.levels.rain;
-      this.ramp(this.bus.rain.gain, v > 0.001 ? 0.35 + 0.65 * v : 0, 0.6);
+      const L = this.levels;
+      this.ramp(this.bus.rain.gain, v > 0.001 ? (0.35 + 0.65 * v) * L.rainVol * 1.25 : 0, 0.6);
       this.ramp(this.rainHiss.gain, 0.12 + 0.55 * v, 0.6);
       this.ramp(this.rainBody.gain, 0.05 + 0.9 * v * v, 0.6);
-      this.ramp(this.rainLP.frequency, 3000 + 7000 * v, 0.6);
+      // With the window layer up you're indoors, so the outside rain loses its top end
+      this.ramp(this.rainLP.frequency, (3000 + 7000 * v) * (1 - 0.55 * L.window), 0.6);
       this.ramp(this.rainBodyLP.frequency, 300 + 700 * v, 0.6);
     }
 
@@ -259,6 +262,199 @@
       osc.start(t0); osc.stop(t0 + 2.3);
     }
 
+    /* ---------- ambience: window, mud, traffic, keyboard ---------- */
+    buildAmbience() {
+      // Window: rain heard through glass, plus taps and drips on the pane
+      this.winBodyLP = this.filter('lowpass', 700);
+      this.winBody = this.gain(0);
+      chain(this.loop(this.noise.pink), this.winBodyLP, this.winBody, this.bus.window);
+      // Traffic: a constant low city rumble under the passing cars
+      chain(this.loop(this.noise.brown), this.filter('lowpass', 160), this.gain(0.3), this.bus.traffic);
+      this.nextTap = this.nextMud = this.nextCar = this.nextKey = 0;
+      this.steps = 0;
+      this.keysLeft = 0;
+    }
+
+    panTo(p, from, to, t0, t1) {
+      if (!p.pan) return;
+      p.pan.setValueAtTime(from, t0);
+      p.pan.linearRampToValueAtTime(to, t1);
+    }
+
+    env(param, t, peak, attack, decay) {
+      param.setValueAtTime(0, t);
+      param.linearRampToValueAtTime(peak, t + attack);
+      param.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+    }
+
+    noiseHit(t, buffer, nodes, peak, attack, decay, dest) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = buffer;
+      const g = this.gain(0);
+      this.env(g.gain, t, peak, attack, decay);
+      chain(src, ...nodes, g, dest);
+      src.start(t, rand(0, buffer.duration - 0.5), attack + decay + 0.05);
+    }
+
+    tone(t, f0, f1, glide, peak, decay, dest, type = 'sine') {
+      const o = this.ctx.createOscillator();
+      o.type = type;
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.exponentialRampToValueAtTime(f1, t + glide);
+      const g = this.gain(0);
+      this.env(g.gain, t, peak, 0.003, decay);
+      chain(o, g, dest);
+      o.start(t); o.stop(t + decay + 0.05);
+    }
+
+    windowTap(t) {
+      const p = this.pan(rand(-0.8, 0.8));
+      p.connect(this.bus.window);
+      if (Math.random() < 0.18) {
+        // a drip running off the frame
+        const f = rand(450, 1000);
+        this.tone(t, f, f * rand(1.3, 1.8), 0.05, rand(0.04, 0.1), rand(0.06, 0.12), p);
+      } else {
+        this.noiseHit(t, this.noise.white, [this.filter('highpass', 2200), this.filter('bandpass', rand(2800, 6500), 6)],
+          rand(0.12, 0.4), 0.001, rand(0.02, 0.05), p);
+        if (Math.random() < 0.3) this.tone(t, rand(4000, 6000), rand(3800, 5800), 0.03, 0.015, 0.04, p);
+      }
+    }
+
+    squelch(t, step) {
+      const d = rand(0.08, 0.2);
+      const peak = step ? rand(0.35, 0.6) : rand(0.12, 0.3);
+      const p = this.pan(rand(-0.6, 0.6));
+      p.connect(this.bus.mud);
+      const bp = this.filter('bandpass', 250, 3);
+      bp.frequency.setValueAtTime(rand(200, 350), t);
+      bp.frequency.exponentialRampToValueAtTime(rand(700, 1300), t + d);
+      this.noiseHit(t, this.noise.pink, [bp, this.filter('lowpass', 2500)], peak, 0.015, d + 0.1, p);
+      if (step) {
+        // the boot pulling back out of the mud
+        const t2 = t + rand(0.18, 0.28);
+        const bp2 = this.filter('bandpass', 1000, 4);
+        bp2.frequency.setValueAtTime(rand(900, 1300), t2);
+        bp2.frequency.exponentialRampToValueAtTime(rand(250, 400), t2 + 0.12);
+        this.noiseHit(t2, this.noise.pink, [bp2], peak * 0.6, 0.01, 0.14, p);
+      }
+    }
+
+    mudPop(t) {
+      const p = this.pan(rand(-0.7, 0.7));
+      chain(p, this.filter('lowpass', 1500), this.bus.mud);
+      const f = rand(110, 320);
+      this.tone(t, f, f * rand(1.8, 2.6), rand(0.03, 0.07), rand(0.08, 0.2), 0.1, p);
+    }
+
+    car(t) {
+      const ctx = this.ctx;
+      this.nextCar = t + rand(3, 12) * (1.3 - this.levels.traffic);
+      const dur = rand(4, 8);
+      const mid = t + dur * rand(0.4, 0.6);
+      const end = t + dur;
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      const peak = rand(0.25, 0.6);
+      const p = this.pan(0);
+      this.panTo(p, -0.85 * dir, 0.85 * dir, t, end);
+      p.connect(this.bus.traffic);
+      const shape = (param, amp) => {
+        param.setValueAtTime(0.0001, t);
+        param.exponentialRampToValueAtTime(amp, mid);
+        param.exponentialRampToValueAtTime(0.0001, end);
+      };
+
+      // Road noise, its band sweeping up then down as the car approaches and leaves
+      const road = ctx.createBufferSource();
+      road.buffer = this.noise.pink; road.loop = true;
+      const bp = this.filter('bandpass', 300, 0.8);
+      bp.frequency.setValueAtTime(300, t);
+      bp.frequency.exponentialRampToValueAtTime(rand(700, 1100), mid);
+      bp.frequency.exponentialRampToValueAtTime(260, end);
+      const g1 = this.gain(0); shape(g1.gain, peak);
+      chain(road, bp, g1, p);
+      road.start(t, rand(0, 5)); road.stop(end + 0.1);
+
+      // Spray off wet tyres
+      const spray = ctx.createBufferSource();
+      spray.buffer = this.noise.white; spray.loop = true;
+      const g2 = this.gain(0); shape(g2.gain, peak * 0.3);
+      chain(spray, this.filter('highpass', 2200), this.filter('lowpass', 6000), g2, p);
+      spray.start(t, rand(0, 2)); spray.stop(end + 0.1);
+
+      // Engine hum with a slight Doppler drop
+      const eng = ctx.createOscillator();
+      eng.type = 'sawtooth';
+      const f = rand(55, 85);
+      eng.frequency.setValueAtTime(f * 1.04, t);
+      eng.frequency.linearRampToValueAtTime(f * 0.95, end);
+      const g3 = this.gain(0); shape(g3.gain, peak * 0.22);
+      chain(eng, this.filter('lowpass', 180), g3, p);
+      eng.start(t); eng.stop(end + 0.1);
+    }
+
+    keystroke(t, big) {
+      const p = this.pan(rand(-0.25, 0.25));
+      p.connect(this.bus.keyboard);
+      const peak = rand(0.18, 0.3);
+      this.noiseHit(t, this.noise.white, [this.filter('bandpass', rand(2200, 4200), 1.2)], peak, 0.001, rand(0.02, 0.035), p);
+      const f = big ? rand(110, 140) : rand(170, 260);
+      this.tone(t, f, f * 0.9, 0.04, rand(0.15, 0.25), 0.05, p);
+      // softer click as the key comes back up
+      this.noiseHit(t + rand(0.07, 0.11), this.noise.white, [this.filter('bandpass', rand(3000, 5000), 1.5)], peak * 0.3, 0.001, 0.02, p);
+    }
+
+    click() {
+      if (!this.ctx || this.ctx.state !== 'running') return;
+      const t = this.ctx.currentTime + 0.01;
+      this.noiseHit(t, this.noise.white, [this.filter('bandpass', 3200, 2)], 0.3, 0.001, 0.025, this.chimeBus);
+      this.tone(t, 240, 200, 0.03, 0.2, 0.05, this.chimeBus);
+    }
+
+    tickAmbience(now, ahead) {
+      const L = this.levels;
+      if (L.window > 0.005) {
+        const rate = 3 + 28 * Math.max(L.rain, 0.1);
+        if (this.nextTap < now) this.nextTap = now;
+        while (this.nextTap < ahead) {
+          this.windowTap(this.nextTap);
+          this.nextTap += -Math.log(1 - Math.random()) / rate;
+        }
+      }
+      if (L.mud > 0.005) {
+        if (this.nextMud < now) this.nextMud = now;
+        while (this.nextMud < ahead) {
+          const t = this.nextMud;
+          if (this.steps > 0) {
+            this.squelch(t, true);
+            this.steps--;
+            this.nextMud += rand(0.5, 0.62);
+          } else if (Math.random() < 0.08) {
+            this.steps = 5 + Math.floor(Math.random() * 8); // someone walks through
+            this.nextMud += rand(0.3, 1);
+          } else {
+            if (Math.random() < 0.5) this.squelch(t, false); else this.mudPop(t);
+            this.nextMud += -Math.log(1 - Math.random()) / 1.4;
+          }
+        }
+      }
+      if (L.traffic > 0.005 && now > this.nextCar) this.car(now + 0.05);
+      if (L.keyboard > 0.005) {
+        if (this.nextKey < now) this.nextKey = now;
+        while (this.nextKey < ahead) {
+          if (this.keysLeft > 0) {
+            const big = Math.random() < 0.12; // space bar
+            this.keystroke(this.nextKey, big);
+            this.keysLeft--;
+            this.nextKey += big ? rand(0.18, 0.3) : rand(0.07, 0.17) * (Math.random() < 0.08 ? 3 : 1);
+          } else {
+            this.keysLeft = 4 + Math.floor(Math.random() * 36);
+            this.nextKey += rand(1, 6);
+          }
+        }
+      }
+    }
+
     /* ---------- music ---------- */
     buildMusic() {
       const ctx = this.ctx;
@@ -360,6 +556,7 @@
 
     /* ---------- control ---------- */
     setLevel(name, v) {
+      if (!(name in this.levels)) return;
       const prev = this.levels[name];
       this.levels[name] = v;
       if (!this.ctx) return;
@@ -373,6 +570,11 @@
       this.ramp(this.bus.thunder.gain, L.thunder > 0.001 ? 0.45 + 0.55 * L.thunder : 0);
       this.ramp(this.bus.music.gain, L.music * 0.9, 0.5);
       this.ramp(this.bus.wind.gain, L.wind * 1.3, 0.6);
+      this.ramp(this.bus.window.gain, L.window * 1.1, 0.5);
+      this.ramp(this.winBody.gain, 0.15 + 0.6 * L.rain, 0.6);
+      this.ramp(this.bus.mud.gain, L.mud, 0.5);
+      this.ramp(this.bus.traffic.gain, L.traffic * 0.9, 0.8);
+      this.ramp(this.bus.keyboard.gain, L.keyboard * 0.9, 0.4);
       if (this.playing) this.ramp(this.out.gain, L.volume * L.volume, 0.25);
     }
 
@@ -397,6 +599,7 @@
         this.nextBeat += 60 / BPM;
       }
 
+      this.tickAmbience(now, ahead);
       if (now > this.nextGust) this.gust(now);
       if (this.levels.thunder > 0.01 && now > this.nextStrike) this.strike();
     }
@@ -412,6 +615,7 @@
       this.nextBeat = now + 0.1;
       this.padDue = true;
       this.nextGust = now;
+      this.nextCar = now + rand(1, 4);
       if (!this.nextStrike || this.nextStrike < now) this.nextStrike = now + rand(6, 14);
       this.out.gain.setTargetAtTime(this.levels.volume * this.levels.volume, now, 0.9);
       clearInterval(this.timer);
